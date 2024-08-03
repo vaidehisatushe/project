@@ -3,7 +3,7 @@ import nibabel as nib
 import matplotlib.pyplot as plt
 import os
 
-def create_data_visulization():
+def create_data_visualization():
 
     train_data_path = "D:/Shivank/BraTS_Brain_Segmentation/MICCAI2024-BraTS-GoAT-TrainingData-With-GroundTruth/MICCAI2024-BraTS-GoAT-TrainingData-With-GroundTruth/"
     valid_data_path = "D:/Shivank/BraTS_Brain_Segmentation/MICCAI2024-BraTS-GoAT-ValidationData/MICCAI2024-BraTS-GoAT-ValidationData/"
@@ -218,9 +218,9 @@ def create_data_visulization():
     # In[12]:
 
 
-    def setup_data_visulization():
-        #visulization()
-        create_data_visulization()
+    def setup_data_visualization():
+        #visualization()
+        create_data_visualization()
 
     if __name__ == '__main__':
-        setup_data_visulization()
+        setup_data_visualization()
