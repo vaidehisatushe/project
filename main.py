@@ -6,49 +6,31 @@
 # 
 # ### Installing the Libraries
 
-# In[2]:
-
-
 get_ipython().system('pip install nilearn')
 get_ipython().system('pip install pydot')
 
-
 # ### Importing the Libraries
-
 # In[3]:
 
 
-import numpy as np 
+
 import pandas as pd 
-import seaborn as sns
 import matplotlib.pyplot as plt
 import random
 import os
 import cv2
 import glob 
-import PIL
-from PIL import Image, ImageOps
-from matplotlib.colors import ListedColormap
 from skimage import data
-from skimage.util import montage
-import skimage.transform as skTrans
-from skimage.transform import rotate
-from skimage.transform import resize
-import nilearn as nl
-import nibabel as nib
-import gif as gif2nif
+
 import keras
 import keras.backend as K
 from keras.callbacks import CSVLogger
 import tensorflow as tf
-from sklearn.preprocessing import MinMaxScaler
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report
 from tensorflow.keras.models import *
 from tensorflow.keras.layers import *
 from tensorflow.keras.optimizers import *
-from tensorflow.keras.callbacks import ModelCheckpoint, ReduceLROnPlateau, EarlyStopping, TensorBoard
-from tensorflow.keras.layers.experimental import preprocessing
 from tensorflow.keras.layers import Conv3D, MaxPooling3D, UpSampling3D, concatenate, Dropout
 from tensorflow.keras.models import Model
 from tensorflow.keras.layers import Input
@@ -56,261 +38,23 @@ from sklearn.metrics import classification_report
 from keras.layers import Input, Conv3D, MaxPooling3D, UpSampling3D, concatenate, Dropout
 from keras.models import Model
 from scipy.spatial.distance import directed_hausdorff
-from sklearn.metrics import pairwise_distances
 import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 from sklearn.metrics import classification_report
 import random
-
+from data_utils import setup_data_visualization
 import warnings
 warnings.filterwarnings("ignore")
 
 
 # ### Importing the Dataset
-
-# In[3]:
-
-
-train_data_path = "D:/Shivank/BraTS_Brain_Segmentation/MICCAI2024-BraTS-GoAT-TrainingData-With-GroundTruth/MICCAI2024-BraTS-GoAT-TrainingData-With-GroundTruth/"
-valid_data_path = "D:/Shivank/BraTS_Brain_Segmentation/MICCAI2024-BraTS-GoAT-ValidationData/MICCAI2024-BraTS-GoAT-ValidationData/"
-
-
-# ### Data Visualization
-
-# In[4]:
-
-
-sample_filename = 'D:/Shivank/BraTS_Brain_Segmentation/MICCAI2024-BraTS-GoAT-TrainingData-With-GroundTruth/MICCAI2024-BraTS-GoAT-TrainingData-With-GroundTruth/BraTS-GoAT-00000/BraTS-GoAT-00000-t2w.nii.gz'
-sample_filename_mask = 'D:/Shivank/BraTS_Brain_Segmentation/MICCAI2024-BraTS-GoAT-TrainingData-With-GroundTruth/MICCAI2024-BraTS-GoAT-TrainingData-With-GroundTruth/BraTS-GoAT-00000/BraTS-GoAT-00000-seg.nii.gz'
-
-sample_img = nib.load(sample_filename)
-sample_img = np.asanyarray(sample_img.dataobj)
-sample_img = np.rot90(sample_img)
-sample_mask = nib.load(sample_filename_mask)
-sample_mask = np.asanyarray(sample_mask.dataobj)
-sample_mask = np.rot90(sample_mask)
-print("img shape ->", sample_img.shape)
-print("mask shape ->", sample_mask.shape)
-
-
-# In[5]:
-
-
-case_id = 'BraTS-GoAT-00000'
-
-# Loading MRI images and segmentation mask
-test_image_flair = nib.load(os.path.join(train_data_path, case_id, case_id + '-t2w.nii.gz')).get_fdata()
-test_image_t1    = nib.load(os.path.join(train_data_path, case_id, case_id + '-t1n.nii.gz')).get_fdata()
-test_image_t1ce  = nib.load(os.path.join(train_data_path, case_id, case_id + '-t1c.nii.gz')).get_fdata()
-test_image_t2    = nib.load(os.path.join(train_data_path, case_id, case_id + '-t2f.nii.gz')).get_fdata()
-test_mask        = nib.load(os.path.join(train_data_path, case_id, case_id + '-seg.nii.gz')).get_fdata()
-
-# Check dimensions of loaded data
-print("FLAIR image shape:", test_image_flair.shape)
-print("T1 image shape   :", test_image_t1.shape)
-print("T1CE image shape :", test_image_t1ce.shape)
-print("T2 image shape   :", test_image_t2.shape)
-print("Mask image shape :", test_mask.shape)
-
-# Value counts of labels in the mask
-label_values, label_counts = np.unique(test_mask, return_counts = True)
-label_counts_dict = dict(zip(label_values, label_counts))
-print("\nLabel Value Counts:")
-print(label_counts_dict)
-
-# Visualizing MRI images and segmentation mask
-fig, ((ax1, ax2, ax3), (ax4, ax5, ax6)) = plt.subplots(2, 3, figsize = (18, 12))
-slice_idx = test_image_flair.shape[2] // 2
-
-# FLAIR
-ax1.imshow(test_image_flair[:, :, slice_idx], cmap = 'gray')
-ax1.set_title('Image FLAIR')
-
-# T1
-ax2.imshow(test_image_t1[:, :, slice_idx], cmap = 'gray')
-ax2.set_title('Image T1')
-
-# T1CE
-ax3.imshow(test_image_t1ce[:, :, slice_idx], cmap = 'gray')
-ax3.set_title('Image T1CE')
-
-# T2
-ax4.imshow(test_image_t2[:, :, slice_idx], cmap = 'gray')
-ax4.set_title('Image T2')
-
-# MASK
-ax5.imshow(test_mask[:, :, slice_idx], cmap = 'gray')
-ax5.set_title('Mask')
-
-plt.show()
-
-
-# In[6]:
-
-
-case_id = 'BraTS-GoAT-00000'
-
-# Loading MRI images and segmentation mask
-test_image_flair = nib.load(os.path.join(train_data_path, case_id, case_id + '-t2w.nii.gz')).get_fdata()
-test_mask        = nib.load(os.path.join(train_data_path, case_id, case_id + '-seg.nii.gz')).get_fdata()
-
-# Visualizing MRI images and segmentation mask
-fig, axes = plt.subplots(1, 2, figsize = (15, 7))
-
-# FLAIR image
-axes[0].imshow(test_image_flair[:, :, slice_idx], cmap = 'gray')
-axes[0].set_title('FLAIR Image')
-
-# Overlay mask on FLAIR image
-overlay_mask = np.ma.masked_where(test_mask == 0, test_mask)
-axes[1].imshow(test_image_flair[:, :, slice_idx], cmap = 'gray')
-axes[1].imshow(overlay_mask[:, :, slice_idx], cmap = 'cool', alpha = 0.5)
-axes[1].set_title('FLAIR Image with Overlay Mask')
-
-plt.show()
-
-
-# In[ ]:
-
-
-
-
-
-# In[7]:
-
-
-case_id = 'BraTS-GoAT-00003'
-
-# Loading MRI images and segmentation mask
-test_image_flair = nib.load(os.path.join(train_data_path, case_id, case_id + '-t2w.nii.gz')).get_fdata()
-test_image_t1    = nib.load(os.path.join(train_data_path, case_id, case_id + '-t1n.nii.gz')).get_fdata()
-test_image_t1ce  = nib.load(os.path.join(train_data_path, case_id, case_id + '-t1c.nii.gz')).get_fdata()
-test_image_t2    = nib.load(os.path.join(train_data_path, case_id, case_id + '-t2f.nii.gz')).get_fdata()
-test_mask        = nib.load(os.path.join(train_data_path, case_id, case_id + '-seg.nii.gz')).get_fdata()
-
-# Check dimensions of loaded data
-print("FLAIR image shape:", test_image_flair.shape)
-print("T1 image shape   :", test_image_t1.shape)
-print("T1CE image shape :", test_image_t1ce.shape)
-print("T2 image shape   :", test_image_t2.shape)
-print("Mask image shape :", test_mask.shape)
-
-# Value counts of labels in the mask
-label_values, label_counts = np.unique(test_mask, return_counts = True)
-label_counts_dict = dict(zip(label_values, label_counts))
-print("\nLabel Value Counts:")
-print(label_counts_dict)
-
-# Visualizing MRI images and segmentation mask
-fig, ((ax1, ax2, ax3), (ax4, ax5, ax6)) = plt.subplots(2, 3, figsize = (18, 12))
-slice_idx = test_image_flair.shape[2] // 2
-
-# FLAIR
-ax1.imshow(test_image_flair[:, :, slice_idx], cmap = 'gray')
-ax1.set_title('Image FLAIR')
-
-# T1
-ax2.imshow(test_image_t1[:, :, slice_idx], cmap = 'gray')
-ax2.set_title('Image T1')
-
-# T1CE
-ax3.imshow(test_image_t1ce[:, :, slice_idx], cmap = 'gray')
-ax3.set_title('Image T1CE')
-
-# T2
-ax4.imshow(test_image_t2[:, :, slice_idx], cmap = 'gray')
-ax4.set_title('Image T2')
-
-# MASK
-ax5.imshow(test_mask[:, :, slice_idx], cmap = 'gray')
-ax5.set_title('Mask')
-
-plt.show()
-
-
-# In[8]:
-
-
-case_id = 'BraTS-GoAT-00007'
-
-# Loading MRI images and segmentation mask
-test_image_flair = nib.load(os.path.join(train_data_path, case_id, case_id + '-t2w.nii.gz')).get_fdata()
-test_image_t1    = nib.load(os.path.join(train_data_path, case_id, case_id + '-t1n.nii.gz')).get_fdata()
-test_image_t1ce  = nib.load(os.path.join(train_data_path, case_id, case_id + '-t1c.nii.gz')).get_fdata()
-test_image_t2    = nib.load(os.path.join(train_data_path, case_id, case_id + '-t2f.nii.gz')).get_fdata()
-test_mask        = nib.load(os.path.join(train_data_path, case_id, case_id + '-seg.nii.gz')).get_fdata()
-
-# Check dimensions of loaded data
-print("FLAIR image shape:", test_image_flair.shape)
-print("T1 image shape   :", test_image_t1.shape)
-print("T1CE image shape :", test_image_t1ce.shape)
-print("T2 image shape   :", test_image_t2.shape)
-print("Mask image shape :", test_mask.shape)
-
-# Value counts of labels in the mask
-label_values, label_counts = np.unique(test_mask, return_counts = True)
-label_counts_dict = dict(zip(label_values, label_counts))
-print("\nLabel Value Counts:")
-print(label_counts_dict)
-
-# Visualizing MRI images and segmentation mask
-fig, ((ax1, ax2, ax3), (ax4, ax5, ax6)) = plt.subplots(2, 3, figsize = (18, 12))
-slice_idx = test_image_flair.shape[2] // 2
-
-# FLAIR
-ax1.imshow(test_image_flair[:, :, slice_idx], cmap = 'gray')
-ax1.set_title('Image FLAIR')
-
-# T1
-ax2.imshow(test_image_t1[:, :, slice_idx], cmap = 'gray')
-ax2.set_title('Image T1')
-
-# T1CE
-ax3.imshow(test_image_t1ce[:, :, slice_idx], cmap = 'gray')
-ax3.set_title('Image T1CE')
-
-# T2
-ax4.imshow(test_image_t2[:, :, slice_idx], cmap = 'gray')
-ax4.set_title('Image T2')
-
-# MASK
-ax5.imshow(test_mask[:, :, slice_idx], cmap = 'gray')
-ax5.set_title('Mask')
-
-plt.show()
-
-
-# ### Data Preprocessing
-
-# In[9]:
-
-
-# skip 50:-50 slices since there is not much to see
-fig, ax1 = plt.subplots(1, 1, figsize = (15, 15))
-ax1.imshow(rotate(montage(test_image_t1[50:-50,:,:]), 90, resize = True), cmap = 'gray')
-
-
-# In[10]:
-
-
-# skip 50:-50 slices since there is not much to see
-fig, ax1 = plt.subplots(1, 1, figsize = (15, 15))
-ax1.imshow(rotate(montage(test_mask[50:-50,:,:]), 90, resize = True), cmap = 'gray')
-
-
-# In[11]:
-
-
-print(test_image_flair.max())
-print(np.unique(test_mask))
-
-
-# ### Evaluation Matrix
-
-# In[12]:
-
-
+if __name__ == "__main__":
+    # Data setup
+    train_data_path = "D:/Shivank/BraTS_Brain_Segmentation/MICCAI2024-BraTS-GoAT-TrainingData-With-GroundTruth/MICCAI2024-BraTS-GoAT-TrainingData-With-GroundTruth/"
+    valid_data_path = "D:/Shivank/BraTS_Brain_Segmentation/MICCAI2024-BraTS-GoAT-ValidationData/MICCAI2024-BraTS-GoAT-ValidationData/"
+# ### Data Visualization and Preprocessing
+    setup_data_visualization()
 # dice loss as defined above for 4 classes
 def dice_coef(y_true, y_pred, smooth = 1.0):
     class_num = 4
@@ -326,7 +70,6 @@ def dice_coef(y_true, y_pred, smooth = 1.0):
     total_loss = total_loss / class_num
     return total_loss
 
-
 # define per class evaluation of dice coef
 def dice_coef_necrotic(y_true, y_pred, epsilon = 1e-6):
     intersection = K.sum(K.abs(y_true[:,:,:,1] * y_pred[:,:,:, 1]))
@@ -339,7 +82,6 @@ def dice_coef_edema(y_true, y_pred, epsilon = 1e-6):
 def dice_coef_enhancing(y_true, y_pred, epsilon = 1e-6):
     intersection = K.sum(K.abs(y_true[:,:,:,3] * y_pred[:,:,:, 3]))
     return (2. * intersection) / (K.sum(K.square(y_true[:,:,:, 3])) + K.sum(K.square(y_pred[:,:,:,3])) + epsilon)
-
 
 # Computing Precision 
 def precision(y_true, y_pred):
@@ -360,11 +102,9 @@ def specificity(y_true, y_pred):
     possible_negatives = K.sum(K.round(K.clip(1-y_true, 0, 1)))
     return true_negatives / (possible_negatives + K.epsilon())
 
-
 # ### Model Building 
 
 # In[13]:
-
 
 IMG_SIZE = 240
 VOLUME_SLICES = 100 
@@ -530,7 +270,7 @@ class DataGenerator(keras.utils.Sequence):
 training_generator = DataGenerator(train_ids)
 valid_generator    = DataGenerator(val_ids)
 test_generator     = DataGenerator(test_ids)
-
+ 
 
 # In[19]:
 
@@ -1219,7 +959,6 @@ import json
 import nibabel as nib
 import numpy as np
 from glob import glob
-from joblib import Parallel, delayed
 
 def load_nifty(directory, example_id, suffix):
     return nib.load(os.path.join(directory, example_id + "-" + suffix + ".nii.gz"))
@@ -1317,7 +1056,6 @@ import numpy as np
 import nibabel as nib
 import matplotlib.pyplot as plt
 from tensorflow.keras.models import load_model
-from PIL import Image
 
 # Load the model
 model = load_model('brain_segmentation_model.h5')
